@@ -1,0 +1,141 @@
+---
+title: "BIOST Analysis"
+author: "Client"
+date: "`r Sys.Date()`"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r clean environment}
+rm(list = ls())
+```
+
+```{r load packages}
+library(tidyverse)
+library(corrplot)
+library(car)
+library(pROC)
+library(ResourceSelection)  # for Hosmer-Lemeshow test
+```
+
+```{r importing dataset}
+MHRData <- read_csv("MaternalHealthRiskDataSet-1.csv", show_col_types = FALSE)
+head(MHRData)
+#Convert risk level to factor
+MHRData$RiskLevel <- as.factor(MHRData$RiskLevel)
+```
+
+```{r Descriptive statistics}
+# Descriptive statistics
+summary(MHRData)
+```
+```{r}
+# Checking distributions and outliers
+par(mfrow = c(3,2), mar = c(4, 4, 2, 1))
+hist(MHRData$Age, main = "Age", xlab = "")
+hist(MHRData$SystolicBP, main = "Systolic BP", xlab = "")
+hist(MHRData$DiastolicBP, main = "Diastolic BP", xlab = "")
+hist(MHRData$BS, main = "Blood Sugar", xlab = "")
+hist(MHRData$BodyTemp, main = "Body Temp", xlab = "")
+hist(MHRData$HeartRate, main = "Heart Rate", xlab = "")
+```
+
+```{r Correlation}
+# Checking correlations
+cor_matrix <- cor(MHRData[, sapply(MHRData, is.numeric)])
+corrplot(cor_matrix, method = "circle")
+```
+
+
+**Visualization**
+
+```{r Scatter plot}
+# Visual exploratory analysis
+ggplot(MHRData, aes(x = BS, y = SystolicBP, color = RiskLevel)) +
+  geom_point() +
+  labs(x = "Blood Glucose Level", y = "Systolic Blood Pressure", color = "Risk Level")
+```
+
+```{r Boxplot Blood Glucose}
+# Boxplot for blood glucose  based on risk level
+ggplot(MHRData, aes(x = RiskLevel, y = BS, color = RiskLevel)) +
+  geom_boxplot() +
+  labs(x = "Risk Level", y = "Blood Glucose Level", color = "Risk Level")
+
+```
+
+```{r Systolic BP}
+#Boxplot for systolic blood pressure based on risk level
+ggplot(MHRData, aes(x = RiskLevel, y = SystolicBP, color = RiskLevel)) +
+  geom_boxplot() +
+  labs(x = "Risk Level", y = "Systolic Blood Pressure", color = "Risk Level")
+```
+
+
+```{r Converting to binary}
+
+# Convert to a factor
+MHRData$RiskLevel <- as.factor(MHRData$RiskLevel)
+
+# Recode into binary variable
+MHRData$RiskLevel <- ifelse(MHRData$RiskLevel == "high risk", "High Risk", "Not High Risk")
+
+# Convert to a factor again
+MHRData$RiskLevel <- as.factor(MHRData$RiskLevel)
+
+# Check the summary
+summary(MHRData$RiskLevel)
+
+
+```
+
+```{r Logistic Blood Glucose}
+# Logistic Regression for Blood Glucose level, adjusting for Age
+model_BS_age <- glm(RiskLevel ~ BS + Age, data = MHRData, family = binomial)
+summary(model_BS_age)
+```
+
+```{r Logistic Systolic BP}
+# Logistic regression model for systolic blood pressure, adjusting for age
+model_SystolicBP_age <- glm(RiskLevel ~ SystolicBP + Age, data = MHRData, family = binomial)
+summary(model_SystolicBP_age)
+```
+
+```{r Multicollinearity}
+# Checking multicollinearity
+vif(model_BS_age)  # Variance inflation factors for model_BS_age
+vif(model_SystolicBP_age)  # Variance inflation factors for model_SystolicBP_age
+
+```
+
+```{r Goodness of fit}
+# Hosmer-Lemeshow test for model_BS_age
+hoslem.test(model_BS_age$y, fitted(model_BS_age))
+
+# Hosmer-Lemeshow test for model_SystolicBP_age
+hoslem.test(model_SystolicBP_age$y, fitted(model_SystolicBP_age))
+```
+
+```{r AUC-ROC}
+#AUC-ROC curve for model evaluation
+
+roc_obj <- roc(MHRData$RiskLevel, fitted(model_BS_age))
+auc(roc_obj)
+
+roc_obj <- roc(MHRData$RiskLevel, fitted(model_SystolicBP_age))
+auc(roc_obj)
+
+```
+
+
+```{r}
+
+```
+
+
